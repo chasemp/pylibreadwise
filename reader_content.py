@@ -5,6 +5,7 @@ import json
 import yaml
 
 import urllib3
+# https://urllib3.readthedocs.io/en/latest/advanced-usage.html#tls-warnings
 urllib3.disable_warnings()
 
 def read_value_from_yaml(file_path, key):
