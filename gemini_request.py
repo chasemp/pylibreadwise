@@ -25,7 +25,7 @@ def read_value_from_yaml(file_path, key):
     return data[key]
   return None
 
-def fetch_reader_document_list_api(updated_after=None, location=None, content=True, token=None):
+def fetch_reader_document_list_api(updated_after=None, location=None, category=None, content=True, token=None):
     full_data = []
     next_page_cursor = None
     while True:
@@ -36,6 +36,8 @@ def fetch_reader_document_list_api(updated_after=None, location=None, content=Tr
             params['updatedAfter'] = updated_after
         if location:
             params['location'] = location
+        if category:
+            params['category'] = category
         if content:
             params['withHtmlContent'] = content
 
@@ -59,34 +61,53 @@ gkey = read_value_from_yaml('secret.yaml', 'galf')
 rkey = read_value_from_yaml('secret.yaml', 'token')
 
 # Later, if you want to get new documents updated after some date, do this:
-## docs_after_date = datetime.datetime.now() - datetime.timedelta(days=5)  # use your own stored date
-## article_delta = fetch_reader_document_list_api(docs_after_date.isoformat(), token=rkey)
-
-article_delta = fetch_reader_document_list_api(location='archive', token=rkey)
+docs_after_date = datetime.datetime.now() - datetime.timedelta(days=7)  # use your own stored date
+print(docs_after_date)
+article_delta = fetch_reader_document_list_api(updated_after=docs_after_date.isoformat(), token=rkey)
 
 client = genai.Client(api_key=gkey)
-# article = article_delta[0]
-articles = [x['html_content'] for x in article_delta][:30]
+
+articles = [str(x) for x in article_delta]
 
 print("Article count is {}".format(len(articles)))
-#exit()
-## print(article); exit()
 
-system_instruction = """
+system_instruction1 = """
 Role: You are an assistant summarizing articles that are of interest.
 Focus on newly introduced techniques, tools, or approaches especially as
 they relate to information security
 Make the title a link to the source material starting the title with the top level domain linked and including the article name separated by a colon
-Include an entry for every item
+Include an entry for every article
 Include meta commentary on common sources and topics
 Render output as stand alone valid HTML without any other intro
 """
+
+system_instruction = """
+Role: You are an executive assistant
+
+Using this structured set of article metadata extract common topics and key insights
+across all articles with reference links to the source web page.  Make the article title the link to the article with
+a one sentence summary to the right.
+
+Break into non-technology, cybersecurity, non-cybersecurity technology, Amazon Web Services (AWS) sections with a few sentences of summary of key highlights
+with each article only appearing in one section related with a special section at the bottom enumerating
+tools and products with a link and brief description. 
+
+Format this in HTML and without any other intro.
+
+Let me know if a site is an especially popular source of references and
+anything else that seems interesting and unique across articles
+
+Be only as verbose as you have room based on max_output_tokens to not leave out any article entirely.
+Truncate line length at 12 characters in the HTML.
+
+"""
+
 
 response = client.models.generate_content(
     model="gemini-2.0-flash",
     config=types.GenerateContentConfig(
         system_instruction=system_instruction,
-        max_output_tokens=1000,
+        max_output_tokens=4000,
         temperature=0.1),
     contents=articles,
 )
